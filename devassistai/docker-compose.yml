@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+
+  # PostgreSQL + PGVector
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: devassist-postgres
+    environment:
+      POSTGRES_DB: devassist
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d devassist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ollama AI
+  ollama:
+    image: ollama/ollama
+    container_name: devassist-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # Spring Boot Application
+  app:
+    build: .
+    container_name: devassist-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/devassist
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_AI_OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  ollama_data:
